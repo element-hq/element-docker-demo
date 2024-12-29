@@ -1,0 +1,94 @@
+{
+    acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+    email robert-letsencrypt@riemann.cc
+    admin off
+    local_certs
+    skip_install_trust
+    # auto_https off
+
+    http_port 8080
+    https_port 8443
+}
+
+
+http://{$DOMAIN} {
+    root /srv/www
+
+    # Directives contained in a route block will not be reordered internally.
+    route {
+        file_server /.well-known/matrix/*
+        file_server /.well-known/element/*
+        reverse_proxy /.well-known/openid-configuration http://mas:8080
+        # redirect with status 301 all other requests to https
+        redir https://https://{host}{uri} permanent
+    }
+}
+
+# TODO if redirects for /.well-known/ are permissive, block for http and https can be merged
+
+https://{$DOMAIN} {
+    root /srv/www
+
+    # Directives contained in a route block will not be reordered internally.
+    route {
+        redir / https://{$ELEMENT_WEB_FQDN} temporary
+        file_server /.well-known/matrix/*
+        file_server /.well-known/element/*
+        reverse_proxy /.well-known/openid-configuration http://mas:8080
+    }
+}
+
+{$ELEMENT_WEB_FQDN} {
+    reverse_proxy http://element-web:80
+}
+
+{$ELEMENT_CALL_FQDN} {
+    reverse_proxy http://element-call:80 # TODO port 80 or 8080
+}
+
+{$MAS_FQDN} {
+    reverse_proxy http://mas:8080
+}
+
+{$LIVEKIT_FQDN} {
+    reverse_proxy http://livekit:7880
+}
+
+{$LIVEKIT_JWT_FQDN} {
+    reverse_proxy http://livekit-jwt:8080
+}
+
+# for the federation port 8448
+{$HOMESERVER_FQDN}, {$HOMESERVER_FQDN}:8448 {
+
+    request_body {
+        max_size 50MB
+    }
+
+    route {
+        # pass auth to MAS
+        reverse_proxy /_matrix/client/*/login http://mas:8080
+        reverse_proxy /_matrix/client/*/logout http://mas:8080
+        reverse_proxy /_matrix/client/*/refresh http://mas:8080
+
+        # use the generic worker as a synchrotron:
+        # taken from https://element-hq.github.io/synapse/latest/workers.html#synapseappgeneric_worker
+        @generic {
+            path /_matrix/client/r0/sync
+            path /_matrix/client/v3/sync
+            path /_matrix/client/api/events
+            path /_matrix/client/v1/events
+            path /_matrix/client/r0/events
+            path /_matrix/client/v3/events
+            path /_matrix/client/api/initialSync
+            path /_matrix/client/v1/initialSync
+            path /_matrix/client/r0/initialSync
+            path /_matrix/client/v3/initialSync
+        }
+        reverse_proxy @generic http://synapse-generic-worker-1:8081
+        @genericRoom path_regexp ^/_matrix/client/(api/v1|r0|v3)/rooms/[^/]+/initialSync$
+        reverse_proxy @genericRoom http://synapse-generic-worker-1:8081
+
+        reverse_proxy * http://synapse:8008
+    }
+}
