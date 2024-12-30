@@ -111,7 +111,9 @@ services:
     shm_size: 256mb
     networks: []
     healthcheck:
-      test: ['CMD', 'pg_isready', '-U', 'postgres']
+      test: ['CMD', 'pg_isready', '-U', "$POSTGRES_USER"]
+      start_period: 5s
+      start_interval: 1s
     volumes:
       - ${VOLUME_PATH}/data/postgres/synapse:/var/lib/postgresql/data:z
       - db_sock_synapse:/var/run/postgresql
