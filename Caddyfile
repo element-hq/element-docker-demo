@@ -1,9 +1,8 @@
 {
     acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
-    email robert-letsencrypt@riemann.cc
+    email ${LETS_ENCRYPT_EMAIL}
     admin off
     local_certs
-    # auto_https off
 
     http_port 8080
     https_port 8443
