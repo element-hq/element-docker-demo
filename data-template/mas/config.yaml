@@ -30,10 +30,8 @@ http:
   public_base: https://${MAS_FQDN}/
   issuer: https://${DOMAIN}/
 database:
-  host: postgres
-  database: mas
-  username: matrix
-  password: ${SECRETS_POSTGRES_PASSWORD}
+  # https://www.postgresql.org/docs/13/libpq-connect.html#id-1.7.3.8.3.6
+  database: postgres
   max_connections: 10
   min_connections: 0
   connect_timeout: 30
