@@ -107,7 +107,7 @@ services:
     shm_size: 256mb
     networks: []
     healthcheck:
-      test: ['CMD', 'pg_isready', '-U', "$POSTGRES_USER"]
+      test: ['CMD', 'pg_isready', '-U', "$POSTGRES_USER", '-d', 'postgres']
       start_period: 5s
       start_interval: 1s
     volumes:
