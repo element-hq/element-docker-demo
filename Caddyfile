@@ -1,12 +1,12 @@
-# kate: tab-indents on; tab-width 4
+# kate: tab-indents on; tab-width 4; space-indent off;
 {
 	acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
 	email ${LETS_ENCRYPT_EMAIL}
 	admin off
 	local_certs
-
-	http_port 8080
-	https_port 8443
+	skip_install_trust
+	http_port {$CADDY_HTTP_PORT}
+	https_port {$CADDY_HTTPS_PORT}
 }
 
 http://{$DOMAIN} {
