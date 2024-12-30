@@ -2,7 +2,7 @@
 {
 	acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
 	email ${LETS_ENCRYPT_EMAIL}
-	admin off
+	# admin off # keep on for healthcheck and graceful reloads
 	local_certs
 	skip_install_trust
 	http_port {$CADDY_HTTP_PORT}

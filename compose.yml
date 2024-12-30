@@ -95,9 +95,13 @@ services:
           - $ELEMENT_WEB_FQDN
           - $ELEMENT_CALL_FQDN
           - $MAS_FQDN
-    depends_on:
-      init:
-        condition: service_completed_successfully
+    healthcheck:
+      # https://stackoverflow.com/a/47722899/5008962, https://github.com/compose-spec/compose-spec/blob/main/spec.md#healthcheck
+      test: wget --no-verbose --tries=1 --spider http://127.0.0.1:2019/metrics || exit 1
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
 
   db-synapse: &db-template
     user: $USER_ID:$GROUP_ID
