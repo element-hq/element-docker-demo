@@ -6,7 +6,7 @@ set -e
 # set up data & secrets dir with the right ownerships in the default location
 # to stop docker autocreating them with random owners.
 # originally these were checked into the git repo, but that's pretty ugly, so doing it here instead.
-mkdir -p data/{element-{web,call},livekit,mas,nginx/{ssl,www,conf.d},postgres,synapse}
+mkdir -p data/{element-{web,call},livekit,mas,caddy/{conf,data,site},postgres,synapse}
 mkdir -p secrets/{livekit,postgres,synapse}
 
 # create blank secrets to avoid docker creating empty directories in the host
@@ -33,37 +33,22 @@ if [[ ! -e .env  ]]; then
     fi
 
     # SSL setup
-    read -p "Use local mkcert CA for SSL? [y/n] " use_mkcert
-    if [[ "$use_mkcert" =~ ^[Yy]$ ]]; then
-	if ! [ -x "$(command -v mkcert)" ]; then
-            echo "Please install mkcert from brew/apt/yum etc"
-	    exit
-        fi
-        mkcert -install
-        mkcert $DOMAIN '*.'$DOMAIN
-        mkdir -p data/ssl
-        mv ${DOMAIN}+1.pem data/ssl/fullchain.pem
-        mv ${DOMAIN}+1-key.pem data/ssl/privkey.pem
-        cp "$(mkcert -CAROOT)"/rootCA.pem data/ssl/ca-certificates.crt
-        # borrow letsencrypt's SSL config
-        curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf > "data/ssl/options-ssl-nginx.conf"
-        curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot/certbot/ssl-dhparams.pem > "data/ssl/ssl-dhparams.pem"
-        success=true
-    else
-        read -p "Use letsencrypt for SSL? [y/n] " use_letsencrypt
-        if [[ "$use_letsencrypt" =~ ^[Yy]$ ]]; then
-	    mkdir -p data/ssl
-            touch data/ssl/ca-certificates.crt # will get overwritten by init-letsencrypt.sh
-            source ./init-letsencrypt.sh
-            success=true
-        else
-            echo "Please put a valid {privkey,fullchain}.pem and ca-certificates.crt into data/ssl/"
-        fi
+    cp data{-template,}/caddy/conf/Caddyfile
+    read -p "Use letsencrypt instead of Caddy local_certs for SSL? [y/n] " use_local_certs
+    if [[ "$use_local_certs" =~ ^[Yy]$ ]]; then
+        sed -ri.orig "s/local_certs/# local_certs" data/caddy/conf/Caddyfile
     fi
+    success=true
 else
     echo ".env already exists; move it out of the way first to re-setup"
 fi
 
-if ! [ -z "$success" ]; then
-    echo ".env and SSL configured; you can now docker compose up"
+if [ -n "$success" ]; then
+    echo ".env and SSL configured"
+    echo "Run now with podman-compose (or docker-compose):"
+    echo "$ podman unshare chown -R 1000:1000 data/ secrets/ # (podman rootless only)"
+    echo "$ podman-compose run --rm generate-synapse-secrets generate"
+    echo "$ podman-compose run --rm generate-mas-secrets config generate -o /data/config.yaml.default"
+    echo ""
+    echo "Then you can run docker compose up"
 fi

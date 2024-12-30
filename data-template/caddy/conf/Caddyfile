@@ -3,7 +3,6 @@
     email robert-letsencrypt@riemann.cc
     admin off
     local_certs
-    skip_install_trust
     # auto_https off
 
     http_port 8080
@@ -73,21 +72,13 @@ https://{$DOMAIN} {
 
         # use the generic worker as a synchrotron:
         # taken from https://element-hq.github.io/synapse/latest/workers.html#synapseappgeneric_worker
-        @generic {
-            path /_matrix/client/r0/sync
-            path /_matrix/client/v3/sync
-            path /_matrix/client/api/events
-            path /_matrix/client/v1/events
-            path /_matrix/client/r0/events
-            path /_matrix/client/v3/events
-            path /_matrix/client/api/initialSync
-            path /_matrix/client/v1/initialSync
-            path /_matrix/client/r0/initialSync
-            path /_matrix/client/v3/initialSync
-        }
+        @generic <<CEL
+            path_regexp('^/_matrix/client/(r0|v3)/sync$') ||
+            path_regexp('^/_matrix/client/(api/v1|r0|v3)/events$') ||
+            path_regexp('^/_matrix/client/(api/v1|r0|v3)/initialSync$') ||
+            path_regexp('^/_matrix/client/(api/v1|r0|v3)/rooms/[^/]+/initialSync$')
+        CEL
         reverse_proxy @generic http://synapse-generic-worker-1:8081
-        @genericRoom path_regexp ^/_matrix/client/(api/v1|r0|v3)/rooms/[^/]+/initialSync$
-        reverse_proxy @genericRoom http://synapse-generic-worker-1:8081
 
         reverse_proxy * http://synapse:8008
     }

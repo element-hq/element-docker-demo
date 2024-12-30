@@ -14,39 +14,36 @@ secrets:
     file: secrets/livekit/livekit_secret_key
 
 services:
-  # XXX: consider factor out secret generation from the compose.yml
-
   # dependencies for optionally generating default configs + secrets
   generate-synapse-secrets:
     image: ghcr.io/element-hq/synapse:latest
     user: $USER_ID:$GROUP_ID
     restart: "no"
+    profiles: ["manual_launch_only"]
     volumes:
       - ${VOLUME_PATH}/data/synapse:/data:rw,z
-      - ${VOLUME_PATH}/init/generate-synapse-secrets.sh:/entrypoint.sh:z,ro
     env_file: .env
     environment:
       SYNAPSE_CONFIG_DIR: /data
       SYNAPSE_CONFIG_PATH: /data/homeserver.yaml.default
       SYNAPSE_SERVER_NAME: ${DOMAIN}
       SYNAPSE_REPORT_STATS: ${REPORT_STATS}
-    entrypoint: "/entrypoint.sh"
+    # entrypoint: "/entrypoint.sh"
 
   generate-mas-secrets:
-    restart: "no"
     image: ghcr.io/element-hq/matrix-authentication-service:latest
     user: $USER_ID:$GROUP_ID
+    restart: "no"
+    profiles: ["manual_launch_only"]
     volumes:
       - ${VOLUME_PATH}/data/mas:/data:rw,z
-    # FIXME: stop this regenerating a spurious default config every time
-    # We can't do the same approach as synapse (unless use a debug image of MAS) as MAS is distroless and has no bash.
-    command: "config generate -o /data/config.yaml.default"
 
   # dependency for templating /data-template into /data (having extracted any secrets from any default generated configs)
   init:
     build: init
     user: $USER_ID:$GROUP_ID
     restart: "no"
+    profiles: ["manual_launch_only"]
     volumes:
       - ${VOLUME_PATH}/secrets:/secrets:z
       - ${VOLUME_PATH}/data:/data:z
@@ -54,17 +51,29 @@ services:
       - ${VOLUME_PATH}/init/init.sh:/init.sh:z,ro
     command: "/init.sh"
     env_file: .env
-    depends_on:
-      generate-synapse-secrets:
-        condition: service_completed_successfully
-      generate-mas-secrets:
-        condition: service_completed_successfully
+    environment:
+      HOMESERVER_FQDN: "matrix.$DOMAIN"
+      MAS_FQDN: "auth.$DOMAIN"
+      ELEMENT_WEB_FQDN: "webchat.$DOMAIN"
+      ELEMENT_CALL_FQDN: "call.$DOMAIN"
+      LIVEKIT_FQDN: "livekit.$DOMAIN"
+      LIVEKIT_JWT_FQDN: "livekit-jwt.$DOMAIN"
+      MAIL_NOTIF_FROM_ADDRESS: "noreply@$DOMAIN"
+      ABUSE_SUPPORT_EMAIL: "abuse@$DOMAIN"
+      SECURITY_SUPPORT_EMAIL: "security@$DOMAIN"
 
   caddy:
     image: docker.io/caddy:$CADDY_VERSION
     user: $USER_ID:$GROUP_ID
     restart: unless-stopped
     env_file: .env
+    environment:
+      HOMESERVER_FQDN: "matrix.$DOMAIN"
+      MAS_FQDN: "auth.$DOMAIN"
+      ELEMENT_WEB_FQDN: "webchat.$DOMAIN"
+      ELEMENT_CALL_FQDN: "call.$DOMAIN"
+      LIVEKIT_FQDN: "livekit.$DOMAIN"
+      LIVEKIT_JWT_FQDN: "livekit-jwt.$DOMAIN"
     cap_add:
       - NET_ADMIN
     ports:
@@ -208,6 +217,9 @@ services:
   #     - backend
   #   # FIXME: do we also need to sync the db?
   #   command: "server --config=/data/config.yaml"
+  #   environment:
+  #     MAS_EMAIL_FROM: "Matrix Authentication Service" <support@${DOMAIN}>
+  #     MAS_EMAIL_REPLY_TO: "Matrix Authentication Service" <support@${DOMAIN}>
   #   depends_on:
   #     postgres:
   #       condition: service_healthy
