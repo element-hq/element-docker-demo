@@ -129,11 +129,10 @@ services:
   redis:
     image: docker.io/redis:latest
     restart: always
-    healthcheck::
+    healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
-      # interval: 1s
-      # timeout: 3s
-      # retries: 5
+      start_period: 5s
+      start_interval: 1s
     networks:
       - backend
 
