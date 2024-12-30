@@ -4,8 +4,6 @@ networks:
   backend:
 
 secrets:
-  postgres_password:
-    file: secrets/postgres/postgres_password
   synapse_signing_key:
     file: secrets/synapse/signing.key
   livekit_api_key:
@@ -86,7 +84,6 @@ services:
       - ${VOLUME_PATH}/data/caddy/site:/srv:z
       - ${VOLUME_PATH}/data/caddy/data:/data:z
       - caddy_config:/config
-
     networks:
       backend:
         aliases: # so our containers can resolve the LB
@@ -106,7 +103,6 @@ services:
   db-synapse: &db-template
     user: $USER_ID:$GROUP_ID
     image: docker.io/postgres:$POSTGRES_VERSION
-    container_name: "db-synapse"
     restart: always
     shm_size: 256mb
     networks: []
@@ -120,10 +116,11 @@ services:
     environment:
       POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C -c listen_addresses='' # disable tcp
       POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: $POSTGRES_USER
+      POSTGRES_DB: postgres
 
   db-mas:
     <<: *db-template
-    container_name: "db-mas"
     volumes:
       - ${VOLUME_PATH}/data/postgres/mas:/var/lib/postgresql/data:z
       - db_sock_mas:/var/run/postgresql
@@ -144,7 +141,8 @@ services:
     restart: always
     volumes:
       - ${VOLUME_PATH}/data/synapse:/data:z
-      - ${VOLUME_PATH}/data/caddy/data/caddy/pki/authorities/local/
+      - ${VOLUME_PATH}/data/caddy/data/caddy/pki/authorities/local/root.crt:/etc/ssl/certs/ca-certificates.crt:ro,z
+      - db_sock_synapse:/var/run/postgresql
       # - ${VOLUME_PATH}/data/ssl/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro,z
     # ports:
     #   - 8008:8008
@@ -155,12 +153,14 @@ services:
       SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
     secrets:
       - synapse_signing_key
-  #   depends_on:
-  #     redis:
-  #       condition: service_started
-  #     postgres:
-  #       condition: service_healthy
-  #
+    depends_on:
+      caddy:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      db-synapse:
+        condition: service_healthy
+
   # synapse-generic-worker-1:
   #   image: ghcr.io/element-hq/synapse:latest
   #   user: $USER_ID:$GROUP_ID
@@ -207,28 +207,28 @@ services:
   #     - synapse_signing_key
   #   depends_on:
   #     - synapse
-  #
+
   # mas:
   #   image: ghcr.io/element-hq/matrix-authentication-service:latest
-  #   restart: unless-stopped
+  #   user: $USER_ID:$GROUP_ID
+  #   restart: always
   #   # ports:
   #   #   - 8083:8080
   #   volumes:
   #     - ${VOLUME_PATH}/data/mas:/data:rw
-  #     - ${VOLUME_PATH}/data/ssl/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt
+  #     - ${VOLUME_PATH}/data/caddy/data/caddy/pki/authorities/local/root.crt:/etc/ssl/certs/ca-certificates.crt:ro,z
+  #     - db_sock_mas:/var/run/postgresql
   #   networks:
   #     - backend
   #   # FIXME: do we also need to sync the db?
   #   command: "server --config=/data/config.yaml"
   #   environment:
-  #     MAS_EMAIL_FROM: "Matrix Authentication Service" <support@${DOMAIN}>
-  #     MAS_EMAIL_REPLY_TO: "Matrix Authentication Service" <support@${DOMAIN}>
+  #     MAS_EMAIL_FROM: "\"Matrix Authentication Service\" <support@${DOMAIN}>"
+  #     MAS_EMAIL_REPLY_TO: "\"Matrix Authentication Service\" <support@${DOMAIN}>"
   #   depends_on:
-  #     postgres:
+  #     db-mas:
   #       condition: service_healthy
-  #     init:
-  #       condition: service_completed_successfully
-  #
+
   # # as a basic local MTA
   # mailhog:
   #   image: docker.io/mailhog/mailhog:latest

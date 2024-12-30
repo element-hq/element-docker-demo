@@ -36,12 +36,6 @@ then
 	head -c16 /dev/urandom | base64 | tr -d '=' > /secrets/mas/client.secret
 fi
 
-if [[ ! -s /secrets/postgres/postgres_password ]]
-then
-	mkdir -p /secrets/postgres
-	head -c16 /dev/urandom | base64 | tr -d '=' > /secrets/postgres/postgres_password
-fi
-
 mkdir -p /secrets/livekit
 if [[ ! -s /secrets/livekit/livekit_api_key ]]
 then
