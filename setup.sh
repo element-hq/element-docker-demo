@@ -6,8 +6,9 @@ set -e
 # set up data & secrets dir with the right ownerships in the default location
 # to stop docker autocreating them with random owners.
 # originally these were checked into the git repo, but that's pretty ugly, so doing it here instead.
-mkdir -p data/{element-{web,call},livekit,mas,caddy/{conf,data,site},postgres,synapse}
+mkdir -p data/{element-{web,call},livekit,mas,caddy/{data,site},postgres/{synapse,mas},synapse}
 mkdir -p secrets/{livekit,postgres,synapse}
+mkdir -p data/caddy/data/caddy/pki/authorities/local/ # for caddy local cert
 
 # create blank secrets to avoid docker creating empty directories in the host
 touch secrets/livekit/livekit_{api,secret}_key \

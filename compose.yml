@@ -65,7 +65,7 @@ services:
   caddy:
     image: docker.io/caddy:$CADDY_VERSION
     user: $USER_ID:$GROUP_ID
-    restart: unless-stopped
+    restart: always
     env_file: .env
     environment:
       HOMESERVER_FQDN: "matrix.$DOMAIN"
@@ -82,10 +82,11 @@ services:
       - "8443:8443/udp"
       - "8448:8448"
     volumes:
-      - ${VOLUME_PATH}/data/caddy/conf:/etc/caddy:z
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro,z
       - ${VOLUME_PATH}/data/caddy/site:/srv:z
       - ${VOLUME_PATH}/data/caddy/data:/data:z
       - caddy_config:/config
+
     networks:
       backend:
         aliases: # so our containers can resolve the LB
@@ -123,7 +124,7 @@ services:
 
   redis:
     image: docker.io/redis:latest
-    restart: unless-stopped
+    restart: always
     healthcheck::
       test: ['CMD', 'redis-cli', 'ping']
       # interval: 1s
@@ -131,30 +132,29 @@ services:
       # retries: 5
     networks:
       - backend
-  #
-  # synapse:
-  #   image: ghcr.io/element-hq/synapse:latest
-  #   user: $USER_ID:$GROUP_ID
-  #   restart: unless-stopped
-  #   volumes:
-  #     - ${VOLUME_PATH}/data/synapse:/data:rw
-  #     - ${VOLUME_PATH}/data/ssl/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt
-  #   # ports:
-  #   #   - 8008:8008
-  #   networks:
-  #     - backend
-  #   environment:
-  #     SYNAPSE_CONFIG_DIR: /data
-  #     SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
-  #   secrets:
-  #     - synapse_signing_key
+
+  synapse:
+    image: ghcr.io/element-hq/synapse:latest
+    user: $USER_ID:$GROUP_ID
+    restart: always
+    volumes:
+      - ${VOLUME_PATH}/data/synapse:/data:z
+      - ${VOLUME_PATH}/data/caddy/data/caddy/pki/authorities/local/
+      # - ${VOLUME_PATH}/data/ssl/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro,z
+    # ports:
+    #   - 8008:8008
+    networks:
+      - backend
+    environment:
+      SYNAPSE_CONFIG_DIR: /data
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+    secrets:
+      - synapse_signing_key
   #   depends_on:
   #     redis:
   #       condition: service_started
   #     postgres:
   #       condition: service_healthy
-  #     init:
-  #       condition: service_completed_successfully
   #
   # synapse-generic-worker-1:
   #   image: ghcr.io/element-hq/synapse:latest
