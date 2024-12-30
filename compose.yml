@@ -98,41 +98,39 @@ services:
       init:
         condition: service_completed_successfully
 
-  # postgres:
-  #   image: docker.io/postgres:latest
-  #   restart: unless-stopped
-  #   volumes:
-  #     - ${VOLUME_PATH}/data/postgres:/var/lib/postgresql/data:rw
-  #     - ${VOLUME_PATH}/scripts/create-multiple-postgresql-databases.sh:/docker-entrypoint-initdb.d/create-multiple-postgresql-databases.sh
-  #   networks:
-  #     - backend
-  #   environment:
-  #     POSTGRES_MULTIPLE_DATABASES: synapse,mas
-  #     POSTGRES_USER: matrix # FIXME: use different username+passwords for synapse & MAS DBs.
-  #     POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-  #     POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
-  #     PGDATA: /var/lib/postgresql/data/data # otherwise it clashes with .gitkeep in the parent dir
-  #   secrets:
-  #     - postgres_password
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "pg_isready -U matrix"]
-  #     start_period: "1s"
-  #     interval: "1s"
-  #     timeout: "5s"
-  #   depends_on:
-  #     init:
-  #       condition: service_completed_successfully
-  #
-  # redis:
-  #   image: docker.io/redis:latest
-  #   restart: unless-stopped
-  #   # healthcheck:
-  #   #   test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
-  #   #   interval: 1s
-  #   #   timeout: 3s
-  #   #   retries: 5
-  #   networks:
-  #     - backend
+  db-synapse: &db-template
+    user: $USER_ID:$GROUP_ID
+    image: docker.io/postgres:$POSTGRES_VERSION
+    container_name: "db-synapse"
+    restart: always
+    shm_size: 256mb
+    networks: []
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'postgres']
+    volumes:
+      - ${VOLUME_PATH}/data/postgres/synapse:/var/lib/postgresql/data:z
+      - db_sock_synapse:/var/run/postgresql
+    environment:
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C -c listen_addresses='' # disable tcp
+      POSTGRES_HOST_AUTH_METHOD: trust
+
+  db-mas:
+    <<: *db-template
+    container_name: "db-mas"
+    volumes:
+      - ${VOLUME_PATH}/data/postgres/mas:/var/lib/postgresql/data:z
+      - db_sock_mas:/var/run/postgresql
+
+  redis:
+    image: docker.io/redis:latest
+    restart: unless-stopped
+    healthcheck::
+      test: ['CMD', 'redis-cli', 'ping']
+      # interval: 1s
+      # timeout: 3s
+      # retries: 5
+    networks:
+      - backend
   #
   # synapse:
   #   image: ghcr.io/element-hq/synapse:latest
@@ -325,3 +323,5 @@ services:
 
 volumes:
   caddy_config:
+  db_sock_synapse:
+  db_sock_mas:
