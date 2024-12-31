@@ -17,7 +17,7 @@ services:
     image: ghcr.io/element-hq/synapse:latest
     user: $USER_ID:$GROUP_ID
     restart: "no"
-    profiles: ["manual_launch_only"]
+    profiles: ["init"]
     volumes:
       - ${VOLUME_PATH}/data/synapse:/data:rw,z
     env_file: .env
@@ -32,7 +32,7 @@ services:
     image: ghcr.io/element-hq/matrix-authentication-service:latest
     user: $USER_ID:$GROUP_ID
     restart: "no"
-    profiles: ["manual_launch_only"]
+    profiles: ["init"]
     volumes:
       - ${VOLUME_PATH}/data/mas:/data:rw,z
 
@@ -41,7 +41,7 @@ services:
     build: init
     user: $USER_ID:$GROUP_ID
     restart: "no"
-    profiles: ["manual_launch_only"]
+    profiles: ["init"]
     volumes:
       - ${VOLUME_PATH}/secrets:/secrets:z
       - ${VOLUME_PATH}/data:/data:z
@@ -144,10 +144,12 @@ services:
       - synapse_signing_key
     depends_on:
       caddy:
+        # caddy needs to create PKI CA (root.crt) first
         condition: service_healthy
       redis:
         condition: service_started
       db-synapse:
+        # postgres needs to create socket first
         condition: service_healthy
 
   synapse-generic-worker-1:
