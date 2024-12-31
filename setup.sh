@@ -53,8 +53,7 @@ if [[ ! -e .env  ]]; then
         podman-compose --profile init run --rm generate-synapse-secrets generate
         podman-compose --profile init run --rm generate-mas-secrets config generate -o /data/config.yaml.default
         podman-compose --profile init run --rm init
-        LAUNCH_MSG="Launch with: podman-compose up"
-        LAUNCH_MSG="Launch with: docker compose up\nRegister user: podman-compose exec mas mas-cli -c /data/config.yaml manage register-user"
+        LAUNCH_MSG="Launch with: podman-compose up\nRegister user: podman-compose exec mas mas-cli -c /data/config.yaml manage register-user"
 
         echo "USE_PODMAN=1" >> .env
     else
@@ -71,7 +70,7 @@ if [[ ! -e .env  ]]; then
     echo ".env and SSL configured"
     echo "You may want to add to your /etc/hosts: 127.0.0.1 $(source .env; echo $DOMAINS)"
     echo ""
-    echo "$LAUNCH_MSG"
+    echo -e "$LAUNCH_MSG"
 else
     echo ".env already exists."
     read -p "To reset first the entire setup and loose all data type DELETE [abort]: " do_delete
