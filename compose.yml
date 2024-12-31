@@ -187,54 +187,54 @@ services:
     depends_on:
       - synapse
 
-  # mas:
-  #   image: ghcr.io/element-hq/matrix-authentication-service:latest
-  #   user: $USER_ID:$GROUP_ID
-  #   restart: always
-  #   # ports:
-  #   #   - 8083:8080
-  #   volumes:
-  #     - ${VOLUME_PATH}/data/mas:/data:rw
-  #     - ${VOLUME_PATH}/data/caddy/data/caddy/pki/authorities/local/root.crt:/etc/ssl/certs/ca-certificates.crt:ro,z
-  #     - db_sock_mas:/var/run/postgresql
-  #   networks:
-  #     - backend
-  #   # FIXME: do we also need to sync the db?
-  #   command: "server --config=/data/config.yaml"
-  #   environment:
-  #     MAS_EMAIL_FROM: "\"Matrix Authentication Service\" <support@${DOMAIN}>"
-  #     MAS_EMAIL_REPLY_TO: "\"Matrix Authentication Service\" <support@${DOMAIN}>"
-  #   depends_on:
-  #     db-mas:
-  #       condition: service_healthy
+  mas:
+    image: ghcr.io/element-hq/matrix-authentication-service:latest
+    user: $USER_ID:$GROUP_ID
+    restart: always
+    # ports:
+    #   - 8083:8080
+    volumes:
+      - ${VOLUME_PATH}/data/mas:/data:z
+      - ${VOLUME_PATH}/data/caddy/data/caddy/pki/authorities/local/root.crt:/etc/ssl/certs/ca-certificates.crt:ro,z
+      - db_sock_mas:/var/run/postgresql
+    networks:
+      - backend
+    # FIXME: do we also need to sync the db?
+    command: "server --config=/data/config.yaml"
+    environment:
+      MAS_EMAIL_FROM: "\"Matrix Authentication Service\" <support@${DOMAIN}>"
+      MAS_EMAIL_REPLY_TO: "\"Matrix Authentication Service\" <support@${DOMAIN}>"
+    depends_on:
+      db-mas:
+        condition: service_healthy
 
-  # # as a basic local MTA
-  # mailhog:
-  #   image: docker.io/mailhog/mailhog:latest
-  #   restart: unless-stopped
-  #   # ports:
-  #     # - 8025:8025
-  #     # - 1025:1025
-  #   networks:
-  #     - backend
-  #
-  # element-web:
-  #   image: docker.io/vectorim/element-web:latest
-  #   restart: unless-stopped
-  #   # ports:
-  #   #   - 8080:80
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:80/version || exit 1"]
-  #     start_period: "5s"
-  #     interval: "15s"
-  #     timeout: "5s"
-  #   networks:
-  #     - backend
-  #   volumes:
-  #     - ${VOLUME_PATH}/data/element-web/config.json:/app/config.json
-  #   depends_on:
-  #     init:
-  #       condition: service_completed_successfully
+  # as a basic local MTA
+  mailhog:
+    image: docker.io/mailhog/mailhog:latest
+    restart: always
+    ports:
+      - 8025:8025
+      # - 1025:1025
+    networks:
+      - backend
+
+  element-web:
+    image: docker.io/vectorim/element-web:latest
+    restart: always
+    # ports:
+    #   - 8080:80
+    healthcheck:
+      test: wget -q -O /dev/null http://localhost:80/version || exit 1
+      # start_period: 5s
+      # interval: 15s
+      # timeout: 5s
+    networks:
+      - backend
+    volumes:
+      - ${VOLUME_PATH}/data/element-web/config.json:/app/config.json:z
+    depends_on:
+      init:
+        condition: service_completed_successfully
   #
   # element-call:
   #   image: ghcr.io/element-hq/element-call:latest-ci
