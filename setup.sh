@@ -15,6 +15,7 @@ if [[ ! -e .env  ]]; then
 
     # create blank secrets to avoid docker creating empty directories in the host
     touch secrets/livekit/livekit_{api,secret}_key \
+        secrets/postgres/postgres_password \
         secrets/synapse/signing.key
 
     # when caddy doesn't setup a local root, then create empty file to avoid mapping non-existant file

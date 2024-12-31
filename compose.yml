@@ -4,6 +4,8 @@ networks:
   backend:
 
 secrets:
+  postgres_password:
+    file: secrets/postgres/postgres_password
   synapse_signing_key:
     file: secrets/synapse/signing.key
   livekit_api_key:
@@ -196,6 +198,8 @@ services:
     environment:
       MAS_EMAIL_FROM: "\"Matrix Authentication Service\" <support@${DOMAIN}>"
       MAS_EMAIL_REPLY_TO: "\"Matrix Authentication Service\" <support@${DOMAIN}>"
+    secrets:
+      - postgres_password
     depends_on:
       db-mas:
         condition: service_healthy
