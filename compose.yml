@@ -49,16 +49,6 @@ services:
       - ${VOLUME_PATH}/init/init.sh:/init.sh:z,ro
     command: "/init.sh"
     env_file: .env
-    environment:
-      HOMESERVER_FQDN: "matrix.$DOMAIN"
-      MAS_FQDN: "auth.$DOMAIN"
-      ELEMENT_WEB_FQDN: "webchat.$DOMAIN"
-      ELEMENT_CALL_FQDN: "call.$DOMAIN"
-      LIVEKIT_FQDN: "livekit.$DOMAIN"
-      LIVEKIT_JWT_FQDN: "livekit-jwt.$DOMAIN"
-      MAIL_NOTIF_FROM_ADDRESS: "noreply@$DOMAIN"
-      ABUSE_SUPPORT_EMAIL: "abuse@$DOMAIN"
-      SECURITY_SUPPORT_EMAIL: "security@$DOMAIN"
 
   caddy:
     image: docker.io/caddy:$CADDY_VERSION
