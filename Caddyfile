@@ -18,7 +18,7 @@ http://{$DOMAIN} {
 		file_server /.well-known/element/*
 		reverse_proxy /.well-known/openid-configuration http://mas:8080
 		# redirect with status 301 all other requests to https
-		redir https://https://{host}{uri} permanent
+		redir https://{host}:{$CADDY_HTTPS_PORT}{uri} permanent
 	}
 }
 
@@ -29,7 +29,7 @@ https://{$DOMAIN} {
 
 	# Directives contained in a route block will not be reordered internally.
 	route {
-		redir / https://{$ELEMENT_WEB_FQDN} temporary
+		redir / https://{$ELEMENT_WEB_FQDN}:{$CADDY_HTTPS_PORT} temporary
 		file_server /.well-known/matrix/*
 		file_server /.well-known/element/*
 		reverse_proxy /.well-known/openid-configuration http://mas:8080
