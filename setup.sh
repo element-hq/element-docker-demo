@@ -38,6 +38,8 @@ if [[ ! -e .env  ]]; then
 
     read -p "Use podman-compose instead of docker compose? [y/n]: " use_podman
     if [[ "$use_podman" =~ ^[Yy]$ ]]; then
+        echo "USE_PODMAN=1" >> .env
+
         # 65534 should be system user nobody in most container images
         USER_ID=65534
         GROUP_ID=65534
@@ -53,8 +55,6 @@ if [[ ! -e .env  ]]; then
         podman-compose --profile init run --rm generate-mas-secrets config generate -o /data/config.yaml
         podman-compose --profile init run --rm init
         LAUNCH_MSG="Launch with: podman-compose up\nRegister user: podman-compose exec mas mas-cli -c /data/config.yaml manage register-user"
-
-        echo "USE_PODMAN=1" >> .env
     else
         sed -ri "s/^USER_ID=/USER_ID=$(id -u)/" .env
         sed -ri "s/^GROUP_ID=/GROUP_ID=$(id -g)/" .env
