@@ -4,7 +4,7 @@ set -e
 
 # grab an env if we don't have one already
 if [[ ! -e .env  ]]; then
-    read -p "Enter base domain name [matrix.local]: " DOMAIN
+    read -p "Enter base domain name [matrix.localhost]: " DOMAIN
 
     # set up data & secrets dir with the right ownerships in the default location
     # to stop docker autocreating them with random owners.
@@ -22,7 +22,7 @@ if [[ ! -e .env  ]]; then
 
 
     cp .env-sample .env
-    sed -ri "s/example.local/${DOMAIN:=matrix.local}/g" .env
+    sed -ri "s/example.localhost/${DOMAIN:=matrix.localhost}/g" .env
 
     # try to guess your livekit IP
     if [ -x "$(command -v getent)" ]; then
@@ -33,7 +33,7 @@ if [[ ! -e .env  ]]; then
     fi
 
     # SSL setup
-    read -p "letsencrypt email (unsed for *.local domains) [security@$DOMAIN]: " mail
+    read -p "letsencrypt email (unsed for *.localhost domains) [security@$DOMAIN]: " mail
     sed -ri "s/LETS_ENCRYPT_EMAIL=.*/LETS_ENCRYPT_EMAIL=${mail:-security@${DOMAIN}}/" .env
 
     read -p "Use podman-compose instead of docker compose? [y/n]: " use_podman
