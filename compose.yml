@@ -12,7 +12,7 @@ secrets:
     file: secrets/livekit/livekit_secret_key
 
 services:
-  # dependencies for optionally generating default configs + secrets
+  # dependencies for generating configs + secrets used by setup.sh
   generate-synapse-secrets:
     image: ghcr.io/element-hq/synapse:latest
     user: $USER_ID:$GROUP_ID
@@ -23,7 +23,7 @@ services:
     env_file: .env
     environment:
       SYNAPSE_CONFIG_DIR: /data
-      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml.default
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
       SYNAPSE_SERVER_NAME: ${DOMAIN}
       SYNAPSE_REPORT_STATS: ${REPORT_STATS}
     # entrypoint: "/entrypoint.sh"
@@ -37,7 +37,6 @@ services:
     volumes:
       - ${VOLUME_PATH}/data/mas:/data:rw,z
 
-  # dependency for templating /data-template into /data (having extracted any secrets from any default generated configs)
   init:
     build: init
     user: $USER_ID:$GROUP_ID

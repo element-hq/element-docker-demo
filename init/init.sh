@@ -16,7 +16,7 @@ then
 	mkdir -p /secrets/synapse
 	for secret in registration_shared_secret macaroon_secret_key form_secret
 	do
-		yq .$secret /data/synapse/homeserver.yaml.default > /secrets/synapse/$secret
+		yq .$secret /data/synapse/homeserver.yaml > /secrets/synapse/$secret
 	done
 	# ...and files too, just to keep all our secrets in one place
 	mv /data/synapse/${DOMAIN}.signing.key /secrets/synapse/signing.key
@@ -29,10 +29,10 @@ then
 	# extract MAS secrets from the config and move them into ./secrets
 	for secret in matrix.secret
 	do
-		yq .$secret /data/mas/config.yaml.default > /secrets/mas/$secret
+		yq .$secret /data/mas/config.yaml > /secrets/mas/$secret
 	done
 	yq '(.secrets) as $s
-	    ireduce({}; setpath($s | path; $s))' /data/mas/config.yaml.default > /secrets/mas/secrets
+	    ireduce({}; setpath($s | path; $s))' /data/mas/config.yaml > /secrets/mas/secrets
 	head -c16 /dev/urandom | base64 | tr -d '=' > /secrets/mas/client.secret
 fi
 

@@ -50,7 +50,7 @@ if [[ ! -e .env  ]]; then
         podman unshare chown -R $USER_ID:$GROUP_ID data/ secrets/
 
         podman-compose --profile init run --rm generate-synapse-secrets generate
-        podman-compose --profile init run --rm generate-mas-secrets config generate -o /data/config.yaml.default
+        podman-compose --profile init run --rm generate-mas-secrets config generate -o /data/config.yaml
         podman-compose --profile init run --rm init
         LAUNCH_MSG="Launch with: podman-compose up\nRegister user: podman-compose exec mas mas-cli -c /data/config.yaml manage register-user"
 
@@ -61,7 +61,7 @@ if [[ ! -e .env  ]]; then
         sed -ri "s/^POSTGRES_USER=/POSTGRES_USER=postgres/" .env
 
         docker compose --profile init run --rm generate-synapse-secrets generate
-        docker compose --profile init run --rm generate-mas-secrets config generate -o /data/config.yaml.default
+        docker compose --profile init run --rm generate-mas-secrets config generate -o /data/config.yaml
         docker compose --profile init run --rm init
         LAUNCH_MSG="Launch with: docker compose up\nRegister user: docker compose exec mas mas-cli -c /data/config.yaml manage register-user"
     fi
