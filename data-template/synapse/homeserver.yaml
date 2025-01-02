@@ -46,7 +46,7 @@ trusted_key_servers:
 # please keep config above this point as close as possible to the original generated config
 # so that upstream generated config changes can be detected
 
-public_baseurl: https://${HOMESERVER_FQDN}/
+public_baseurl: https://${HOMESERVER_FQDN}:${CADDY_HTTPS_PORT}/
 suppress_key_server_warning: true
 
 send_federation: false
@@ -100,12 +100,12 @@ rc_message:
 experimental_features:
   msc3861: # OIDC
     enabled: true
-    issuer: https://${DOMAIN}/
+    issuer: https://${DOMAIN}:${CADDY_HTTPS_PORT}/
     client_id: ${MAS_CLIENT_ID}
     client_auth_method: client_secret_basic
     client_secret: '${SECRETS_MAS_CLIENT_SECRET}'
     admin_token: '${SECRETS_MAS_MATRIX_SECRET}'
-    account_management_url: "https://${MAS_FQDN}/account"
+    account_management_url: "https://${MAS_FQDN}:${CADDY_HTTPS_PORT}/account"
 
   # QR login
   msc4108_enabled: true
