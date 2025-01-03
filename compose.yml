@@ -14,7 +14,7 @@ secrets:
 services:
   # dependencies for generating configs + secrets used by setup.sh
   generate-synapse-secrets:
-    image: ghcr.io/element-hq/synapse:latest
+    image: ghcr.io/element-hq/synapse:$SYNAPSE_VERSION
     user: $USER_ID:$GROUP_ID
     restart: "no"
     profiles: ["init"]
@@ -29,7 +29,7 @@ services:
     # entrypoint: "/entrypoint.sh"
 
   generate-mas-secrets:
-    image: ghcr.io/element-hq/matrix-authentication-service:latest
+    image: ghcr.io/element-hq/matrix-authentication-service:$MAS_VERSION
     user: $USER_ID:$GROUP_ID
     restart: "no"
     profiles: ["init"]
@@ -109,7 +109,7 @@ services:
       - db_sock_mas:/var/run/postgresql
 
   redis:
-    image: docker.io/redis:latest
+    image: docker.io/redis:$REDIS_VERSION
     restart: always
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
@@ -119,7 +119,7 @@ services:
       - backend
 
   synapse: &synapse-template
-    image: ghcr.io/element-hq/synapse:latest
+    image: ghcr.io/element-hq/synapse:$SYNAPSE_VERSION
     user: $USER_ID:$GROUP_ID
     restart: always
     volumes:
@@ -173,7 +173,7 @@ services:
       - synapse
 
   mas:
-    image: ghcr.io/element-hq/matrix-authentication-service:latest
+    image: ghcr.io/element-hq/matrix-authentication-service:$MAS_VERSION
     user: $USER_ID:$GROUP_ID
     restart: always
     # ports:
@@ -202,7 +202,7 @@ services:
       - backend
 
   element-web:
-    image: docker.io/vectorim/element-web:latest
+    image: docker.io/vectorim/element-web:$ELEMENT_WEB_VERSION
     restart: always
     # ports:
     #   - 8080:80
