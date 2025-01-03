@@ -3,7 +3,7 @@
         "base_url": "https://${HOMESERVER_FQDN}:${CADDY_HTTPS_PORT}"
     },
     "m.identity_server": {
-        "base_url": "${IDENTITY_SERVER_URL}:${CADDY_HTTPS_PORT}"
+        "base_url": "${IDENTITY_SERVER_URL}"
     },
     "org.matrix.msc2965.authentication": {
         "issuer": "https://${DOMAIN}:${CADDY_HTTPS_PORT}/",
