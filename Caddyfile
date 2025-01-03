@@ -42,7 +42,7 @@ https://{$DOMAIN} {
 }
 
 {$ELEMENT_CALL_FQDN} {
-	reverse_proxy http://element-call:80 # TODO port 80 or 8080
+	reverse_proxy http://element-call:8080
 }
 
 {$MAS_FQDN} {
