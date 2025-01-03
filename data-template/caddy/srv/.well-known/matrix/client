@@ -1,0 +1,18 @@
+{
+    "m.homeserver": {
+        "base_url": "https://${HOMESERVER_FQDN}:${CADDY_HTTPS_PORT}"
+    },
+    "m.identity_server": {
+        "base_url": "${IDENTITY_SERVER_URL}:${CADDY_HTTPS_PORT}"
+    },
+    "org.matrix.msc2965.authentication": {
+        "issuer": "https://${DOMAIN}:${CADDY_HTTPS_PORT}/",
+        "account": "https://${MAS_FQDN}:${CADDY_HTTPS_PORT}/account"
+    },
+    "org.matrix.msc4143.rtc_foci": [
+        {
+            "type": "livekit",
+            "livekit_service_url": "https://${LIVEKIT_JWT_FQDN}:${CADDY_HTTPS_PORT}"
+        }
+    ]
+}

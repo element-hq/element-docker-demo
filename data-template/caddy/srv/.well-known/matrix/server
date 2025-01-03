@@ -1,0 +1,3 @@
+{
+    "m.server": "${HOMESERVER_FQDN}:${CADDY_HTTPS_PORT}"
+}

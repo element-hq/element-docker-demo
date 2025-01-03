@@ -64,7 +64,7 @@ services:
       - "8448:8448"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro,z
-      - ${VOLUME_PATH}/data/caddy/site:/srv:z
+      - ${VOLUME_PATH}/data/caddy/srv:/srv:ro,z
       - ${VOLUME_PATH}/data/caddy/data:/data:z
       - caddy_config:/config
     networks:

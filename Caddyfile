@@ -11,7 +11,7 @@
 }
 
 http://{$DOMAIN} {
-	root /srv/www
+	root /srv
 
 	# Directives contained in a route block will not be reordered internally.
 	route {
@@ -26,7 +26,7 @@ http://{$DOMAIN} {
 # TODO if redirects for /.well-known/ are permissive, block for http and https can be merged
 
 https://{$DOMAIN} {
-	root /srv/www
+	root /srv
 
 	# Directives contained in a route block will not be reordered internally.
 	route {

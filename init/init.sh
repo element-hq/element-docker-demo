@@ -86,5 +86,6 @@ export DOLLAR='$' # evil hack to escape dollars in config files
 	template "/data-template/livekit"
 )
 
+template "/data-template/caddy"
 template "/data-template/element-web"
 template "/data-template/element-call"
