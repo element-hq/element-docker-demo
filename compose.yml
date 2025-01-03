@@ -140,7 +140,7 @@ services:
         # caddy needs to create PKI CA (root.crt) first
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
       db-synapse:
         # postgres needs to create socket first
         condition: service_healthy
@@ -187,7 +187,12 @@ services:
     # FIXME: do we also need to sync the db?
     command: "server --config=/data/config.yaml"
     env_file: .env
+    healthcheck:
+      # TODO https://github.com/element-hq/matrix-authentication-service/issues/3741
+      # test: ["CMD", "mas-cli", "config", "check"]
     depends_on:
+      mailhog:
+        condition: service_started
       db-mas:
         condition: service_healthy
 
@@ -235,6 +240,11 @@ services:
     volumes:
       - ${VOLUME_PATH}/data/livekit/config.yaml:/etc/livekit.yaml:ro,z
     command: --config /etc/livekit.yaml --node-ip ${LIVEKIT_NODE_IP}
+    healthcheck:
+      test: wget -q -O /dev/null http://localhost:7880 || exit 1
+      start_period: 10s
+      start_interval: 10s
+      interval: 60s
     ports:
       # - 7880:7880 # HTTP listener
       - 7881:7881 # TCP WebRTC transport, advertised via SDP
@@ -251,7 +261,7 @@ services:
       - backend
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
 
   livekit-jwt:
     build: ./livekit-jwt
@@ -261,6 +271,13 @@ services:
       - ${VOLUME_PATH}/livekit-jwt/entrypoint.sh:/entrypoint.sh:ro,z
     entrypoint: /entrypoint.sh
     env_file: .env
+    healthcheck:
+      test: wget -q -O /dev/null http://localhost:8080/healthz || exit 1
+      start_period: 10s
+      start_interval: 10s
+      interval: 60s
+    ports:
+      # - 8084:8080
     networks:
       - backend
     secrets:
@@ -268,7 +285,7 @@ services:
       - livekit_secret_key
     depends_on:
       livekit:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   caddy_config:
