@@ -214,10 +214,11 @@ services:
     networks:
       - backend
     volumes:
-      - ${VOLUME_PATH}/data/element-web/config.json:/app/config.json:z
+      - ${VOLUME_PATH}/data/element-web/config.json:/app/config.json:ro,z
+
   element-call:
     image: ghcr.io/element-hq/element-call:$ELEMENT_CALL_VERSION
-    restart: unless-stopped
+    restart: always
     # ports:
     #   - 8082:80
     healthcheck:
@@ -227,65 +228,58 @@ services:
       - backend
     volumes:
       - ${VOLUME_PATH}/data/element-call/config.json:/app/config.json:ro,z
+
+  livekit:
+    image: docker.io/livekit/livekit-server:$LIVEKIT_VERSION
+    restart: always
+    volumes:
+      - ${VOLUME_PATH}/data/livekit/config.yaml:/etc/livekit.yaml:ro,z
+    command: --config /etc/livekit.yaml --node-ip ${LIVEKIT_NODE_IP}
+    ports:
+      # - 7880:7880 # HTTP listener
+      - 7881:7881 # TCP WebRTC transport, advertised via SDP
+
+      # TODO: expose livekit-turn on TCP & UDP 443 via nginx
+      # At least this would allow UDP turn on port 443 for better perf.
+
+      # You can't expose a massive range here as it literally sets up 10,000 userland listeners, which takes forever
+      # and will clash with any existing high-numbered ports.
+      # So for now, tunnel everything via TCP 7881. FIXME!
+      #- 50000-60000:50000-60000/tcp # TCP media
+      #- 50000-60000:50000-60000/udp # UDP media
+    networks:
+      - backend
     depends_on:
-      init:
-        condition: service_completed_successfully
-  #
-  # livekit:
-  #   image: docker.io/livekit/livekit-server:latest
-  #   restart: unless-stopped
-  #   volumes:
-  #     - ${VOLUME_PATH}/data/livekit/config.yaml:/etc/livekit.yaml
-  #   command: --config /etc/livekit.yaml --node-ip ${LIVEKIT_NODE_IP}
-  #   ports:
-  #     # - 7880:7880 # HTTP listener
-  #     - 7881:7881 # TCP WebRTC transport, advertised via SDP
-  #
-  #     # TODO: expose livekit-turn on TCP & UDP 443 via nginx
-  #     # At least this would allow UDP turn on port 443 for better perf.
-  #
-  #     # You can't expose a massive range here as it literally sets up 10,000 userland listeners, which takes forever
-  #     # and will clash with any existing high-numbered ports.
-  #     # So for now, tunnel everything via TCP 7881. FIXME!
-  #     #- 50000-60000:50000-60000/tcp # TCP media
-  #     #- 50000-60000:50000-60000/udp # UDP media
-  #   networks:
-  #     - backend
-  #   depends_on:
-  #     init:
-  #       condition: service_completed_successfully
-  #     redis:
-  #       condition: service_started
-  #
-  # livekit-jwt:
-  #   build:
-  #     # evil hack to pull in bash so we can run an entrypoint.sh
-  #     # FIXME: it's a bit wasteful; the alternative would be to modify lk-jwt-service to pick up secrets from disk
-  #     # Another alternative would be to factor out secret generation from compose.yml and create an .env up front
-  #     dockerfile_inline: |
-  #       FROM ghcr.io/element-hq/lk-jwt-service:latest-ci AS builder
-  #       FROM alpine:latest
-  #       RUN apk update && apk add bash
-  #       COPY --from=builder /lk-jwt-service /
-  #   restart: unless-stopped
-  #   volumes:
-  #     - ${VOLUME_PATH}/data/ssl/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt
-  #     - ${VOLUME_PATH}/scripts/livekit-jwt-entrypoint.sh:/entrypoint.sh
-  #   entrypoint: /entrypoint.sh
-  #   env_file: .env
-  #   deploy:
-  #     restart_policy:
-  #       condition: on-failure
-  #   networks:
-  #     - backend
-  #   secrets:
-  #     - livekit_api_key
-  #     - livekit_secret_key
-  #   depends_on:
-  #     init:
-  #       condition: service_completed_successfully
-  #     livekit:
-  #       condition: service_started
+      redis:
+        condition: service_started
+
+  livekit-jwt:
+    build:
+      # evil hack to pull in bash so we can run an entrypoint.sh
+      # FIXME: it's a bit wasteful; the alternative would be to modify lk-jwt-service to pick up secrets from disk
+      # Another alternative would be to factor out secret generation from compose.yml and create an .env up front
+      dockerfile_inline: |
+        FROM ghcr.io/element-hq/lk-jwt-service:latest-ci AS builder
+        FROM alpine:latest
+        RUN apk update && apk add bash
+        COPY --from=builder /lk-jwt-service /
+    restart: always
+    volumes:
+      - ${VOLUME_PATH}/data/ssl/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt
+      - ${VOLUME_PATH}/scripts/livekit-jwt-entrypoint.sh:/entrypoint.sh
+    entrypoint: /entrypoint.sh
+    env_file: .env
+    deploy:
+      restart_policy:
+        condition: on-failure
+    networks:
+      - backend
+    secrets:
+      - livekit_api_key
+      - livekit_secret_key
+    depends_on:
+      livekit:
+        condition: service_started
 
 volumes:
   caddy_config:
