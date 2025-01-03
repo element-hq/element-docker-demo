@@ -6,8 +6,8 @@
 	# local_certs is default option for *.local domains
 	# more: https://caddyserver.com/docs/automatic-https#hostname-requirements
 	skip_install_trust
-	http_port {$CADDY_HTTP_PORT:80}
-	https_port {$CADDY_HTTPS_PORT:443}
+	http_port {$CADDY_HTTP_PORT}
+	https_port {$CADDY_HTTPS_PORT}
 }
 
 http://{$DOMAIN} {

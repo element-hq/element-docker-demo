@@ -58,9 +58,9 @@ services:
     cap_add:
       - NET_ADMIN
     ports:
-      - "8080:8080"
-      - "8443:8443"
-      - "8443:8443/udp"
+      - "${CADDY_HTTP_PORT}:${CADDY_HTTP_PORT}"
+      - "${CADDY_HTTPS_PORT}:${CADDY_HTTPS_PORT}"
+      - "${CADDY_HTTPS_PORT}:${CADDY_HTTPS_PORT}/udp"
       - "8448:8448"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro,z

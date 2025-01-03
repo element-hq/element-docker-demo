@@ -32,6 +32,16 @@ if [[ ! -e .env  ]]; then
         fi
     fi
 
+    # custom ports
+    read -p "web proxy (caddy) http_port  [80]:  " http_port
+    read -p "web proxy (caddy) https_port [443]: " https_port
+    if [ -n "$http_port" ]; then
+        sed -ri "s/^CADDY_HTTP_PORT.*/CADDY_HTTP_PORT=$http_port/" .env
+    fi
+    if [ -n "$https_port" ]; then
+        sed -ri "s/^CADDY_HTTPS_PORT.*/CADDY_HTTPS_PORT=$http_port/" .env
+    fi
+
     # SSL setup
     read -p "letsencrypt email (unsed for *.localhost domains) [security@$DOMAIN]: " mail
     sed -ri "s/LETS_ENCRYPT_EMAIL=.*/LETS_ENCRYPT_EMAIL=${mail:-security@${DOMAIN}}/" .env
