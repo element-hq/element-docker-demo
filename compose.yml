@@ -254,19 +254,11 @@ services:
         condition: service_started
 
   livekit-jwt:
-    build:
-      # evil hack to pull in bash so we can run an entrypoint.sh
-      # FIXME: it's a bit wasteful; the alternative would be to modify lk-jwt-service to pick up secrets from disk
-      # Another alternative would be to factor out secret generation from compose.yml and create an .env up front
-      dockerfile_inline: |
-        FROM ghcr.io/element-hq/lk-jwt-service:latest-ci AS builder
-        FROM alpine:latest
-        RUN apk update && apk add bash
-        COPY --from=builder /lk-jwt-service /
+    build: ./livekit-jwt
     restart: always
     volumes:
-      - ${VOLUME_PATH}/data/ssl/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt
-      - ${VOLUME_PATH}/scripts/livekit-jwt-entrypoint.sh:/entrypoint.sh
+      - ${VOLUME_PATH}/data/caddy/data/caddy/pki/authorities/local/root.crt:/etc/ssl/certs/ca-certificates.crt:ro,z
+      - ${VOLUME_PATH}/livekit-jwt/entrypoint.sh:/entrypoint.sh
     entrypoint: /entrypoint.sh
     env_file: .env
     deploy:
