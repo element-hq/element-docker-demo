@@ -258,7 +258,7 @@ services:
     restart: always
     volumes:
       - ${VOLUME_PATH}/data/caddy/data/caddy/pki/authorities/local/root.crt:/etc/ssl/certs/ca-certificates.crt:ro,z
-      - ${VOLUME_PATH}/livekit-jwt/entrypoint.sh:/entrypoint.sh
+      - ${VOLUME_PATH}/livekit-jwt/entrypoint.sh:/entrypoint.sh:ro,z
     entrypoint: /entrypoint.sh
     env_file: .env
     networks:
