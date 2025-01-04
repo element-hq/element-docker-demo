@@ -225,7 +225,7 @@ services:
     image: ghcr.io/element-hq/element-call:$ELEMENT_CALL_VERSION
     restart: always
     # ports:
-    #   - 8082:80
+    #   - 8082:8080
     healthcheck:
       test: curl -fSs http://localhost:8080/config.json || exit 1
       interval: 60s
