@@ -38,7 +38,7 @@ https://{$DOMAIN} {
 }
 
 {$ELEMENT_WEB_FQDN} {
-	reverse_proxy http://element-web:80
+	reverse_proxy http://element-web:8080
 }
 
 {$ELEMENT_CALL_FQDN} {

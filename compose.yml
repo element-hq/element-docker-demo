@@ -218,6 +218,8 @@ services:
       # timeout: 5s
     networks:
       - backend
+    environment:
+      ELEMENT_WEB_PORT: 8080
     volumes:
       - ${VOLUME_PATH}/data/element-web/config.json:/app/config.json:ro,z
 
