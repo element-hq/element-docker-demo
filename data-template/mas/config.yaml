@@ -27,13 +27,11 @@ http:
   - 127.0.0.1/8
   - fd00::/8
   - ::1/128
-  public_base: https://${MAS_FQDN}/
-  issuer: https://${DOMAIN}/
+  public_base: https://${MAS_FQDN}:${CADDY_HTTPS_PORT}/
+  issuer: https://${DOMAIN}:${CADDY_HTTPS_PORT}/
 database:
-  host: postgres
-  database: mas
-  username: matrix
-  password: ${SECRETS_POSTGRES_PASSWORD}
+  # https://www.postgresql.org/docs/13/libpq-connect.html#id-1.7.3.8.3.6
+  database: postgres
   max_connections: 10
   min_connections: 0
   connect_timeout: 30
@@ -56,7 +54,7 @@ passwords:
 matrix:
   homeserver: ${DOMAIN}
   secret: '${SECRETS_MAS_MATRIX_SECRET}'
-  endpoint: https://${HOMESERVER_FQDN}/
+  endpoint: https://${HOMESERVER_FQDN}:${CADDY_HTTPS_PORT}/
 
 # please keep config above this point as close as possible to the original generated config
 # so that upstream generated config changes can be detected

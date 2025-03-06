@@ -1,5 +1,5 @@
 {
-    "support_page": "https://matrix.org/contact/",
+    "support_page": "${MATRIX_SUPPORT_PAGE}",
     "contacts": [
         { "role": "m.role.admin", "email_address": "${ABUSE_SUPPORT_EMAIL}" },
         { "role": "m.role.security", "email_address": "${SECURITY_SUPPORT_EMAIL}" }

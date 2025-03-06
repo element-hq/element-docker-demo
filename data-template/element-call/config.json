@@ -1,12 +1,12 @@
 {
   "default_server_config": {
     "m.homeserver": {
-      "base_url": "https://${ELEMENT_CALL_FQDN}",
+      "base_url": "https://${ELEMENT_CALL_FQDN}:${CADDY_HTTPS_PORT}",
       "server_name": "${DOMAIN}"
     }
   },
   "livekit": {
-    "livekit_service_url": "https://${LIVEKIT_JWT_FQDN}"
+    "livekit_service_url": "https://${LIVEKIT_JWT_FQDN}:${CADDY_HTTPS_PORT}"
   },
   "features": {
     "feature_use_device_session_member_events": true

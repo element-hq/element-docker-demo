@@ -4,8 +4,6 @@ networks:
   backend:
 
 secrets:
-  postgres_password:
-    file: secrets/postgres/postgres_password
   synapse_signing_key:
     file: secrets/synapse/signing.key
   livekit_api_key:
@@ -14,66 +12,61 @@ secrets:
     file: secrets/livekit/livekit_secret_key
 
 services:
-  # XXX: consider factor out secret generation from the compose.yml
-
-  # dependencies for optionally generating default configs + secrets
+  # dependencies for generating configs + secrets used by setup.sh
   generate-synapse-secrets:
-    image: ghcr.io/element-hq/synapse:latest
+    image: ghcr.io/element-hq/synapse:$SYNAPSE_VERSION
     user: $USER_ID:$GROUP_ID
     restart: "no"
+    profiles: ["init"]
     volumes:
-      - ${VOLUME_PATH}/data/synapse:/data:rw
-      - ${VOLUME_PATH}/init/generate-synapse-secrets.sh:/entrypoint.sh
+      - ${VOLUME_PATH}/data/synapse:/data:rw,z
     env_file: .env
     environment:
       SYNAPSE_CONFIG_DIR: /data
-      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml.default
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
       SYNAPSE_SERVER_NAME: ${DOMAIN}
       SYNAPSE_REPORT_STATS: ${REPORT_STATS}
-    entrypoint: "/entrypoint.sh"
+    # entrypoint: "/entrypoint.sh"
 
   generate-mas-secrets:
-    restart: "no"
-    image: ghcr.io/element-hq/matrix-authentication-service:latest
+    image: ghcr.io/element-hq/matrix-authentication-service:$MAS_VERSION
     user: $USER_ID:$GROUP_ID
+    restart: "no"
+    profiles: ["init"]
+    env_file: .env
     volumes:
-      - ${VOLUME_PATH}/data/mas:/data:rw
-    # FIXME: stop this regenerating a spurious default config every time
-    # We can't do the same approach as synapse (unless use a debug image of MAS) as MAS is distroless and has no bash.
-    command: "config generate -o /data/config.yaml.default"
+      - ${VOLUME_PATH}/data/mas:/data:rw,z
 
-  # dependency for templating /data-template into /data (having extracted any secrets from any default generated configs)
   init:
     build: init
     user: $USER_ID:$GROUP_ID
     restart: "no"
+    profiles: ["init"]
     volumes:
-      - ${VOLUME_PATH}/secrets:/secrets
-      - ${VOLUME_PATH}/data:/data
-      - ${VOLUME_PATH}/data-template:/data-template
-      - ${VOLUME_PATH}/init/init.sh:/init.sh
+      - ${VOLUME_PATH}/secrets:/secrets:z
+      - ${VOLUME_PATH}/data:/data:z
+      - ${VOLUME_PATH}/data-template:/data-template:z,ro
+      - ${VOLUME_PATH}/init/init.sh:/init.sh:z,ro
     command: "/init.sh"
     env_file: .env
-    depends_on:
-      generate-synapse-secrets:
-        condition: service_completed_successfully
-      generate-mas-secrets:
-        condition: service_completed_successfully
 
-  nginx:
-    image: nginx:latest
-    restart: unless-stopped
+  caddy:
+    image: docker.io/caddy:$CADDY_VERSION
+    user: $USER_ID:$GROUP_ID
+    restart: always
+    env_file: .env
+    cap_add:
+      - NET_ADMIN
     ports:
-      - "80:80"
-      - "443:443"
+      - "${CADDY_HTTP_PORT}:${CADDY_HTTP_PORT}"
+      - "${CADDY_HTTPS_PORT}:${CADDY_HTTPS_PORT}"
+      - "${CADDY_HTTPS_PORT}:${CADDY_HTTPS_PORT}/udp"
       - "8448:8448"
-    # shutdown fast so we can iterate rapidly on compose.yml
-    stop_grace_period: 0s
     volumes:
-      - ${VOLUME_PATH}/data/nginx/conf.d:/etc/nginx/conf.d
-      - ${VOLUME_PATH}/data/nginx/www:/var/www
-      - ${VOLUME_PATH}/data/ssl:/etc/nginx/ssl
-    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro,z
+      - ${VOLUME_PATH}/data/caddy/srv:/srv:ro,z
+      - ${VOLUME_PATH}/data/caddy/data:/data:z
+      - caddy_config:/config
     networks:
       backend:
         aliases: # so our containers can resolve the LB
@@ -82,67 +75,57 @@ services:
           - $ELEMENT_WEB_FQDN
           - $ELEMENT_CALL_FQDN
           - $MAS_FQDN
-    depends_on:
-      init:
-        condition: service_completed_successfully
-
-  certbot:
-    image: certbot/certbot:latest
-    restart: unless-stopped
-    volumes:
-      - ${VOLUME_PATH}/data/certbot/conf:/etc/letsencrypt
-      - ${VOLUME_PATH}/data/certbot/www:/var/www/certbot
-      - ${VOLUME_PATH}/data/ssl:/data/ssl
-    entrypoint: "/bin/sh -c 'trap exit TERM; \
-                 while [ -e /etc/letsencrypt/live ]; \
-                 do sleep 30; certbot --webroot -w /var/www/certbot renew; \
-                 cp /etc/letsencrypt/live/$DOMAIN/*.pem /data/ssl; \
-                 sleep 12h & wait $${!}; \
-                 done;'"
-
-  postgres:
-    image: postgres:latest
-    restart: unless-stopped
-    volumes:
-      - ${VOLUME_PATH}/data/postgres:/var/lib/postgresql/data:rw
-      - ${VOLUME_PATH}/scripts/create-multiple-postgresql-databases.sh:/docker-entrypoint-initdb.d/create-multiple-postgresql-databases.sh
-    networks:
-      - backend
-    environment:
-      POSTGRES_MULTIPLE_DATABASES: synapse,mas
-      POSTGRES_USER: matrix # FIXME: use different username+passwords for synapse & MAS DBs.
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
-      PGDATA: /var/lib/postgresql/data/data # otherwise it clashes with .gitkeep in the parent dir
-    secrets:
-      - postgres_password
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U matrix"]
-      start_period: "1s"
-      interval: "1s"
-      timeout: "5s"
-    depends_on:
-      init:
-        condition: service_completed_successfully
+      # https://stackoverflow.com/a/47722899/5008962, https://github.com/compose-spec/compose-spec/blob/main/spec.md#healthcheck
+      test: wget --no-verbose --tries=1 --spider http://127.0.0.1:2019/metrics || exit 1
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  db-synapse: &db-template
+    user: $USER_ID:$GROUP_ID
+    image: docker.io/postgres:$POSTGRES_VERSION
+    restart: always
+    shm_size: 256mb
+    networks: []
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', "$POSTGRES_USER", '-d', 'postgres']
+      start_period: 5s
+      start_interval: 1s
+    volumes:
+      - ${VOLUME_PATH}/data/postgres/synapse:/var/lib/postgresql/data:z
+      - db_sock_synapse:/var/run/postgresql
+    environment:
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C -c listen_addresses='' # disable tcp
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: $POSTGRES_USER
+      POSTGRES_DB: postgres
+
+  db-mas:
+    <<: *db-template
+    volumes:
+      - ${VOLUME_PATH}/data/postgres/mas:/var/lib/postgresql/data:z
+      - db_sock_mas:/var/run/postgresql
 
   redis:
-    image: redis:latest
-    restart: unless-stopped
-    # healthcheck:
-    #   test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
-    #   interval: 1s
-    #   timeout: 3s
-    #   retries: 5
+    image: docker.io/redis:$REDIS_VERSION
+    restart: always
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      start_period: 5s
+      start_interval: 1s
     networks:
       - backend
 
-  synapse:
-    image: ghcr.io/element-hq/synapse:latest
+  synapse: &synapse-template
+    image: ghcr.io/element-hq/synapse:$SYNAPSE_VERSION
     user: $USER_ID:$GROUP_ID
-    restart: unless-stopped
+    restart: always
     volumes:
-      - ${VOLUME_PATH}/data/synapse:/data:rw
-      - ${VOLUME_PATH}/data/ssl/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt
+      - ${VOLUME_PATH}/data/synapse:/data:z
+      - ${VOLUME_PATH}/data/caddy/data/caddy/pki/authorities/local/root.crt:/etc/ssl/certs/ca-certificates.crt:ro,z
+      - db_sock_synapse:/var/run/postgresql
     # ports:
     #   - 8008:8008
     networks:
@@ -153,125 +136,117 @@ services:
     secrets:
       - synapse_signing_key
     depends_on:
-      redis:
-        condition: service_started
-      postgres:
+      caddy:
+        # caddy needs to create PKI CA (root.crt) first
         condition: service_healthy
-      init:
-        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      db-synapse:
+        # postgres needs to create socket first
+        condition: service_healthy
 
   synapse-generic-worker-1:
-    image: ghcr.io/element-hq/synapse:latest
-    user: $USER_ID:$GROUP_ID
-    restart: unless-stopped
+    <<: *synapse-template
     entrypoint: ["/start.py", "run", "--config-path=/data/homeserver.yaml", "--config-path=/data/workers/synapse-generic-worker-1.yaml"]
     healthcheck:
-      test: ["CMD-SHELL", "curl -fSs http://localhost:8081/health || exit 1"]
-      start_period: "5s"
-      interval: "15s"
-      timeout: "5s"
-    networks:
-      - backend
-    volumes:
-      - ${VOLUME_PATH}/data/synapse:/data:rw
-      - ${VOLUME_PATH}/data/ssl/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt
+      test: curl -fSs http://localhost:8081/health || exit 1
+      # start_period: 5s
+      # interval: 15s
+      # timeout: 5s
     environment:
       SYNAPSE_WORKER: synapse.app.generic_worker
-    # Expose port if required so your reverse proxy can send requests to this worker
-    # Port configuration will depend on how the http listener is defined in the worker configuration file
     # ports:
     #   - 8081:8081
-    secrets:
-      - synapse_signing_key
     depends_on:
       - synapse
 
   synapse-federation-sender-1:
-    image: ghcr.io/element-hq/synapse:latest
-    user: $USER_ID:$GROUP_ID
-    restart: unless-stopped
+    <<: *synapse-template
     entrypoint: ["/start.py", "run", "--config-path=/data/homeserver.yaml", "--config-path=/data/workers/synapse-federation-sender-1.yaml"]
     healthcheck:
       disable: true
-    networks:
-      - backend
-    volumes:
-      - ${VOLUME_PATH}/data/synapse:/data:rw # Replace VOLUME_PATH with the path to your Synapse volume
-      - ${VOLUME_PATH}/data/ssl/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt
     environment:
       SYNAPSE_WORKER: synapse.app.federation_sender
     # ports:
-    #   - 8082:8082
-    secrets:
-      - synapse_signing_key
+    #   - 8081:8081
     depends_on:
       - synapse
 
   mas:
-    image: ghcr.io/element-hq/matrix-authentication-service:latest
-    restart: unless-stopped
+    image: ghcr.io/element-hq/matrix-authentication-service:$MAS_VERSION
+    user: $USER_ID:$GROUP_ID
+    restart: always
     # ports:
     #   - 8083:8080
     volumes:
-      - ${VOLUME_PATH}/data/mas:/data:rw
-      - ${VOLUME_PATH}/data/ssl/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt
+      - ${VOLUME_PATH}/data/mas:/data:z
+      - ${VOLUME_PATH}/data/caddy/data/caddy/pki/authorities/local/root.crt:/etc/ssl/certs/ca-certificates.crt:ro,z
+      - db_sock_mas:/var/run/postgresql
     networks:
       - backend
     # FIXME: do we also need to sync the db?
     command: "server --config=/data/config.yaml"
+    env_file: .env
+    healthcheck:
+      # TODO https://github.com/element-hq/matrix-authentication-service/issues/3741
+      # test: ["CMD", "mas-cli", "config", "check"]
     depends_on:
-      postgres:
+      mailhog:
+        condition: service_started
+      db-mas:
         condition: service_healthy
-      init:
-        condition: service_completed_successfully
 
   # as a basic local MTA
   mailhog:
-    image: mailhog/mailhog:latest
-    restart: unless-stopped
-    # ports:
-      # - 8025:8025
+    image: docker.io/mailhog/mailhog:latest
+    restart: always
+    ports:
+      - 8025:8025
       # - 1025:1025
     networks:
       - backend
 
   element-web:
-    image: vectorim/element-web:latest
-    restart: unless-stopped
+    image: docker.io/vectorim/element-web:$ELEMENT_WEB_VERSION
+    restart: always
     # ports:
     #   - 8080:80
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:80/version || exit 1"]
-      start_period: "5s"
-      interval: "15s"
-      timeout: "5s"
+      test: wget -q -O /dev/null http://localhost:80/version || exit 1
+      # start_period: 5s
+      interval: 60s
+      # timeout: 5s
     networks:
       - backend
+    environment:
+      ELEMENT_WEB_PORT: 8080
     volumes:
-      - ${VOLUME_PATH}/data/element-web/config.json:/app/config.json
-    depends_on:
-      init:
-        condition: service_completed_successfully
+      - ${VOLUME_PATH}/data/element-web/config.json:/app/config.json:ro,z
 
   element-call:
-    image: ghcr.io/element-hq/element-call:latest-ci
-    restart: unless-stopped
+    image: ghcr.io/element-hq/element-call:$ELEMENT_CALL_VERSION
+    restart: always
     # ports:
-    #   - 8082:80
+    #   - 8082:8080
+    healthcheck:
+      test: curl -fSs http://localhost:8080/config.json || exit 1
+      interval: 60s
     networks:
       - backend
     volumes:
-      - ${VOLUME_PATH}/data/element-call/config.json:/app/config.json
-    depends_on:
-      init:
-        condition: service_completed_successfully
+      - ${VOLUME_PATH}/data/element-call/config.json:/app/config.json:ro,z
 
   livekit:
-    image: livekit/livekit-server:latest
-    restart: unless-stopped
+    image: docker.io/livekit/livekit-server:$LIVEKIT_VERSION
+    restart: always
     volumes:
-      - ${VOLUME_PATH}/data/livekit/config.yaml:/etc/livekit.yaml
+      - ${VOLUME_PATH}/data/livekit/config.yaml:/etc/livekit.yaml:ro,z
     command: --config /etc/livekit.yaml --node-ip ${LIVEKIT_NODE_IP}
+    healthcheck:
+      test: wget -q -O /dev/null http://localhost:7880 || exit 1
+      start_period: 10s
+      start_interval: 10s
+      interval: 60s
     ports:
       # - 7880:7880 # HTTP listener
       - 7881:7881 # TCP WebRTC transport, advertised via SDP
@@ -287,37 +262,34 @@ services:
     networks:
       - backend
     depends_on:
-      init:
-        condition: service_completed_successfully
       redis:
-        condition: service_started
+        condition: service_healthy
 
   livekit-jwt:
-    build:
-      # evil hack to pull in bash so we can run an entrypoint.sh
-      # FIXME: it's a bit wasteful; the alternative would be to modify lk-jwt-service to pick up secrets from disk
-      # Another alternative would be to factor out secret generation from compose.yml and create an .env up front
-      dockerfile_inline: |
-        FROM ghcr.io/element-hq/lk-jwt-service:latest-ci AS builder
-        FROM alpine:latest
-        RUN apk update && apk add bash
-        COPY --from=builder /lk-jwt-service /
-    restart: unless-stopped
+    image: ghcr.io/element-hq/lk-jwt-service:latest-ci
+    restart: always
     volumes:
-      - ${VOLUME_PATH}/data/ssl/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt
-      - ${VOLUME_PATH}/scripts/livekit-jwt-entrypoint.sh:/entrypoint.sh
+      - ${VOLUME_PATH}/data/caddy/data/caddy/pki/authorities/local/root.crt:/etc/ssl/certs/ca-certificates.crt:ro,z
+      - ${VOLUME_PATH}/livekit-jwt/entrypoint.sh:/entrypoint.sh:ro,z
     entrypoint: /entrypoint.sh
     env_file: .env
-    deploy:
-      restart_policy:
-        condition: on-failure
+    healthcheck:
+      test: wget -q -O /dev/null http://localhost:8080/healthz || exit 1
+      start_period: 10s
+      start_interval: 10s
+      interval: 60s
+    ports: []
+      # - 8084:8080
     networks:
       - backend
     secrets:
       - livekit_api_key
       - livekit_secret_key
     depends_on:
-      init:
-        condition: service_completed_successfully
       livekit:
-        condition: service_started
+        condition: service_healthy
+
+volumes:
+  caddy_config:
+  db_sock_synapse:
+  db_sock_mas:

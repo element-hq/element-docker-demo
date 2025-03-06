@@ -1,0 +1,83 @@
+# kate: tab-indents on; tab-width 4; space-indent off;
+{
+	acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+	email {$LETS_ENCRYPT_EMAIL}
+	# admin off # keep on for healthcheck and graceful reloads
+	# local_certs is default option for *.local domains
+	# more: https://caddyserver.com/docs/automatic-https#hostname-requirements
+	skip_install_trust
+	http_port {$CADDY_HTTP_PORT}
+	https_port {$CADDY_HTTPS_PORT}
+}
+
+http://{$DOMAIN} {
+	root * /srv
+
+	# Directives contained in a route block will not be reordered internally.
+	route {
+		file_server /.well-known/matrix/*
+		file_server /.well-known/element/*
+		reverse_proxy /.well-known/openid-configuration http://mas:8080
+		# redirect with status 301 all other requests to https
+		redir https://{host}:{$CADDY_HTTPS_PORT}{uri} permanent
+	}
+}
+
+# TODO if redirects for /.well-known/ are permissive, block for http and https can be merged
+
+https://{$DOMAIN} {
+	root * /srv
+
+	# Directives contained in a route block will not be reordered internally.
+	route {
+		redir / https://{$ELEMENT_WEB_FQDN}:{$CADDY_HTTPS_PORT} temporary
+		file_server /.well-known/matrix/*
+		file_server /.well-known/element/*
+		reverse_proxy /.well-known/openid-configuration http://mas:8080
+	}
+}
+
+{$ELEMENT_WEB_FQDN} {
+	reverse_proxy http://element-web:8080
+}
+
+{$ELEMENT_CALL_FQDN} {
+	reverse_proxy http://element-call:8080
+}
+
+{$MAS_FQDN} {
+	reverse_proxy http://mas:8080
+}
+
+{$LIVEKIT_FQDN} {
+	reverse_proxy http://livekit:7880
+}
+
+{$LIVEKIT_JWT_FQDN} {
+	reverse_proxy http://livekit-jwt:8080
+}
+
+# for the federation port 8448
+{$HOMESERVER_FQDN}, {$HOMESERVER_FQDN}:8448 {
+	request_body {
+		max_size 50MB
+	}
+
+	route {
+		# pass auth to MAS
+		@mas expression path_regexp('^/_matrix/client/(.*)/(login|logout|refresh)')
+		reverse_proxy @mas http://mas:8080
+
+		# use the generic worker as a synchrotron:
+		# taken from https://element-hq.github.io/synapse/latest/workers.html#synapseappgeneric_worker
+		@generic <<CEL
+            path_regexp('^/_matrix/client/(r0|v3)/sync$') ||
+            path_regexp('^/_matrix/client/(api/v1|r0|v3)/events$') ||
+            path_regexp('^/_matrix/client/(api/v1|r0|v3)/initialSync$') ||
+            path_regexp('^/_matrix/client/(api/v1|r0|v3)/rooms/[^/]+/initialSync$')
+        CEL
+		reverse_proxy @generic http://synapse-generic-worker-1:8081
+
+		reverse_proxy * http://synapse:8008
+	}
+}

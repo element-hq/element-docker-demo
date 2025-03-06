@@ -1,7 +1,7 @@
 {
     "default_server_config": {
         "m.homeserver": {
-            "base_url": "https://${HOMESERVER_FQDN}",
+            "base_url": "https://${HOMESERVER_FQDN}:${CADDY_HTTPS_PORT}",
             "server_name": "${DOMAIN}"
         },
         "m.identity_server": {
@@ -32,7 +32,7 @@
         "breadcrumbs": true
     },
     "element_call": {
-        "url": "https://${ELEMENT_CALL_FQDN}"
+        "url": "https://${ELEMENT_CALL_FQDN}:${CADDY_HTTPS_PORT}"
     },
     "map_style_url": "https://api.maptiler.com/maps/streets/style.json?key=fU3vlMsMn4Jb6dnEIFsx"
 }
